@@ -1,4 +1,4 @@
-CMD	   = ../debug/poker.exe
+CMD	   = ../bin/poker.exe
 SRCDIR = ../src
 SRCS   = poker.c const.c function.c
 OBJDIR = ../obj

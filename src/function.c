@@ -98,7 +98,7 @@ void dealCards( game *poker, users *user ) {
         user->uCard[i] = cardId;
     }
 
-    /*  任意の値入力用
+    /*
     player->uCard[0] = 3;
     player->uCard[1] = 17;
     player->uCard[2] = 18;
@@ -170,16 +170,19 @@ void convertInput( char *input, command *output ) {
     for (int i = 0; input[i] != '\0'; i++) {
         column++;
     }
-    if (column == 1) {
-        if (input[0] == 'y') {
-            *output = YES;
-        } else if (input[0] == 'n') {
-            *output = NO;
-        } else {
+    switch (column) {
+        case 1:
+            if (input[0] == 'y') {
+                *output = YES;
+            } else if (input[0] == 'n') {
+                *output = NO;
+            } else {
+                *output = INVALID;
+            }
+            break;
+        default:
             *output = INVALID;
-        }
-    } else {
-        *output = INVALID;
+            break;
     }
 }
 
@@ -188,7 +191,6 @@ void playerTurn( game *poker, users *player ) {
 
     char input[SIZE];
     command output;
-
     int cardId;
 
     printf("\n\n");
@@ -215,7 +217,6 @@ void playerTurn( game *poker, users *player ) {
 void dealerTurn( game *poker, users *dealer ) {
 
     int count[4] = {0};
-
     int cardId;
     int flag;
 
@@ -307,7 +308,6 @@ void judgeHand( users *user ) {
             break;
         }
     }
-
     if (samesuit) {
         for (int i = 0; i < HAND; i++) {
             user->uFlag[i] = 1;
@@ -456,11 +456,6 @@ void printHand( users *user ) {
 
 //  勝敗の判定
 void judgeResult( game *poker, users *player, users *dealer ) {
-
-    int max_p;
-    int max_d;
-    int pair_p;
-    int pair_d;
  
     if (player->uHand > dealer->uHand) {
         poker->result = LOSE;
@@ -505,81 +500,93 @@ void judgeResult( game *poker, users *player, users *dealer ) {
                 }
                 break;
             case TWO:
-                if (player->uRank[3] == dealer->uRank[3]) {
-                    if (player->uRank[1] == dealer->uRank[1]) {
-                        for (int i = HAND - 1; i >= 0; i --) {
-                            if (!player->uFlag[i]) {
-                                max_p = i;
-                                break;
+                {
+                    int playerIndex;
+                    int dealerIndex;
+
+                    if (player->uRank[3] == dealer->uRank[3]) {
+                        if (player->uRank[1] == dealer->uRank[1]) {
+                            for (int i = HAND - 1; i >= 0; i --) {
+                                if (!player->uFlag[i]) {
+                                    playerIndex = i;
+                                    break;
+                                }
                             }
-                        }
-                       for (int i = HAND - 1; i >= 0; i --) {
-                            if (!dealer->uFlag[i]) {
-                                max_d = i;
-                                break;
+                            for (int i = HAND - 1; i >= 0; i --) {
+                                if (!dealer->uFlag[i]) {
+                                    dealerIndex = i;
+                                    break;
+                                }
                             }
-                        }
-                        if (player->uRank[max_p] == dealer->uRank[max_d]) {
-                            poker->result = DRAW;
-                        } else if (player->uCard[max_p] > dealer->uCard[max_d]) {
+                            if (player->uRank[playerIndex] == dealer->uRank[dealerIndex]) {
+                                poker->result = DRAW;
+                            } else if (player->uCard[playerIndex] > dealer->uCard[dealerIndex]) {
+                                poker->result = WIN;
+                            } else if (player->uCard[playerIndex] < dealer->uCard[dealerIndex]) {
+                                poker->result = LOSE;
+                            }
+                        } else if (player->uCard[1] > dealer->uCard[1]) {
                             poker->result = WIN;
-                        } else if (player->uCard[max_p] < dealer->uCard[max_d]) {
+                        } else if (player->uCard[1] < dealer->uCard[1]) {
                             poker->result = LOSE;
-                        }
-                    } else if (player->uCard[1] > dealer->uCard[1]) {
+                        } 
+                    } else if (player->uCard[3] > dealer->uCard[3]) {
                         poker->result = WIN;
-                    } else if (player->uCard[1] < dealer->uCard[1]) {
+                    } else if (player->uCard[3] < dealer->uCard[3]) {
                         poker->result = LOSE;
-                    } 
-                } else if (player->uCard[3] > dealer->uCard[3]) {
-                    poker->result = WIN;
-                } else if (player->uCard[3] < dealer->uCard[3]) {
-                    poker->result = LOSE;
+                    }
                 }
                 break;
             case ONE:
-                for (int i = HAND - 1; i >= 0; i--) {
-                    if (player->uFlag[i]) {
-                        pair_p = i;
-                        break;
-                    }
-                }
-                for (int i = HAND - 1; i >= 0; i--) {
-                    if (dealer->uFlag[i]) {
-                        pair_d = i;
-                        break;
-                    }
-                }
-                if (player->uRank[pair_p] == dealer->uRank[pair_d]) {
-                    for (int i = 0; i < HAND - 2; i++) {
-                        for (int j = HAND - 1; j >= 0; j--) {
-                            if (!player->uFlag[j]) {
-                                max_p = j;
-                                player->uFlag[j] = 1;
-                                break;
-                            }
-                        }
-                        for (int j = HAND - 1; j >= 0; j--) {
-                            if (!dealer->uFlag[j]) {
-                                max_d = j;
-                                dealer->uFlag[j] = 1;
-                                break;
-                            }
-                        }
-                        if (player->uRank[max_p] == dealer->uRank[max_d]) {
-                            poker->result = DRAW;
-                        } else if (player->uCard[max_p] > dealer->uCard[max_d]) {
-                            poker->result = WIN;
-                            break;
-                        } else if (player->uCard[max_p] < dealer->uCard[max_d]) {
-                            poker->result = LOSE;
+                {
+                    int playerIndex;
+                    int playerPair;
+                    int dealerIndex;
+                    int dealerPair;
+
+                    for (int i = HAND - 1; i >= 0; i--) {
+                        if (player->uFlag[i]) {
+                            playerPair = i;
                             break;
                         }
                     }
-                } else if (player->uCard[pair_p] > dealer->uCard[pair_d]) {
-                    poker->result = WIN;
-                } else if (player->uCard[pair_p] < dealer->uCard[pair_d]) {
-                    poker->result = LOSE;
+                    for (int i = HAND - 1; i >= 0; i--) {
+                        if (dealer->uFlag[i]) {
+                            dealerPair = i;
+                            break;
+                        }
+                    }
+                    if (player->uRank[playerPair] == dealer->uRank[dealerPair]) {
+                        for (int i = 0; i < HAND - 2; i++) {
+                            for (int j = HAND - 1; j >= 0; j--) {
+                                if (!player->uFlag[j]) {
+                                    playerIndex = j;
+                                    player->uFlag[j] = 1;
+                                    break;
+                                }
+                            }
+                            for (int j = HAND - 1; j >= 0; j--) {
+                                if (!dealer->uFlag[j]) {
+                                    dealerIndex = j;
+                                    dealer->uFlag[j] = 1;
+                                    break;
+                                }
+                            }
+                            if (player->uRank[playerIndex] == dealer->uRank[dealerIndex]) {
+                                poker->result = DRAW;
+                            } else if (player->uCard[playerIndex] > dealer->uCard[dealerIndex]) {
+                                poker->result = WIN;
+                                break;
+                            } else if (player->uCard[playerIndex] < dealer->uCard[dealerIndex]) {
+                                poker->result = LOSE;
+                                break;
+                            }
+                        }
+                    } else if (player->uCard[playerPair] > dealer->uCard[dealerPair]) {
+                        poker->result = WIN;
+                    } else if (player->uCard[playerPair] < dealer->uCard[dealerPair]) {
+                        poker->result = LOSE;
+                    }
                 }
                 break;
             default:

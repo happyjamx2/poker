@@ -6,20 +6,19 @@
 
 int main(void) {
 
-    userID userId;
-
     game poker;
     users player;
     users dealer;
 
     char string[SIZE];
-
     int bet;
     int round = 1;
 
     virtualTerminal();
     srand((unsigned int)time(NULL));
 
+    player.name = "プレイヤー";
+    dealer.name = "ディーラー";
     poker.gold = 10000;
 
     while (round <= finish) {
@@ -27,7 +26,7 @@ int main(void) {
         setValue(&poker, &player, &dealer);
 
         printf("\n%d回戦目のゲームを開始します。", round);
-        printf("\n\nプレーヤーの所持金は%dGです。", poker.gold);
+        printf("\n\n%sの所持金は%dGです。", player.name, poker.gold);
         printf("\n掛け金を入力してください。");
 
         while (1) {
@@ -42,22 +41,18 @@ int main(void) {
         dealCards(&poker, &player);
         dealCards(&poker, &dealer);
 
-        userId = YOU;
-        userTurn(&poker, &player, &userId);
-        userId = DEALDER;
-        userTurn(&poker, &dealer, &userId);
+        playerTurn(&poker, &player, &dealer);
+        dealerTurn(&poker, &dealer);
 
         printf("\n\n勝負です。\n");
         judgeResult(&poker, &player, &dealer);
 
-        userId = YOU;
-        printCards(&poker, &player, &userId);
+        printCards(&poker, &player, &dealer);
         printHand(&player);
-        userId = DEALDER;
-        printCards(&poker, &dealer, &userId);
+        printCards(&poker, &dealer, &player);
         printHand(&dealer);
 
-        calculateBet(&poker, &bet);
+        calculateBet(&poker, &player, &bet);
 
         if (round < finish) {
             printf("\n\n次の試合に進みます。");

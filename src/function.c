@@ -42,24 +42,24 @@ void setValue( game *poker, users *player, users *dealer ) {
     for (int i = 0; i < CARD; i++) {
         poker->card[i] = 0;
     }
-    for (int i = 0; i < HAND; i++) {
-        poker->gFlag[i] = 0;
-    }
     poker->judge = NOTYET;
+    poker->result = DRAW;
 
     for (int i = 0; i < HAND; i++) {
-        player->uFlag[i] = 0;
-        player->uCard[i] = 0;
-        player->uMark[i] = 0;
-        player->uRank[i] = 0;
+        player->pocket[i] = 0;
+        player->mark[i] = 0;
+        player->value[i] = 0;
+        player->record[i] = 0;
     }
+    player->hand = 0;
 
     for (int i = 0; i < HAND; i++) {
-        dealer->uFlag[i] = 0;
-        dealer->uCard[i] = 0;
-        dealer->uMark[i] = 0;
-        dealer->uRank[i] = 0;
+        dealer->pocket[i] = 0;
+        dealer->mark[i] = 0;
+        dealer->value[i] = 0;
+        dealer->record[i] = 0;
     }
+    dealer->hand = 0;
 }
 
 //  1~52の番号をランダムに生成する
@@ -79,11 +79,14 @@ int generateNumber( game *poker ) {
 void convertNumber( users *user ) {
 
     for (int i = 0; i < HAND; i++) {
-        user->uMark[i] = (user->uCard[i] - 1) % 4;
-        if (user->uCard[i] <= 48) {
-            user->uRank[i] = (user->uCard[i] + 7) / 4;
+        user->mark[i] = (user->pocket[i] - 1) % 4;
+        user->record[i] = user->mark[i];
+    }
+    for (int i = 0; i < HAND; i++) {
+        if (user->pocket[i] <= 48) {
+            user->value[i] = (user->pocket[i] + 7) / 4;
         } else {
-            user->uRank[i] = 1;
+            user->value[i] = 1;
         }
     }
 }
@@ -95,70 +98,40 @@ void dealCards( game *poker, users *user ) {
 
     for (int i = 0; i < HAND; i++) {
         cardId = generateNumber(poker);
-        user->uCard[i] = cardId;
+        user->pocket[i] = cardId;
     }
-
-    /*
-    player->uCard[0] = 3;
-    player->uCard[1] = 17;
-    player->uCard[2] = 18;
-    player->uCard[3] = 5;
-    player->uCard[4] = 36;
-
-    dealer->uCard[0] = 3;
-    dealer->uCard[1] = 17;
-    dealer->uCard[2] = 18;
-    dealer->uCard[3] = 5;
-    dealer->uCard[4] = 36;
-    */
+    convertNumber(user);
 }
 
 //  カードの表示
-void printCard( game *poker, users *user, int index ) {
+void printCard( users *user, int index ) {
 
-    color code;
-
-    if (poker->judge == DONE) {
-        if (user->uFlag[index]) {
-            code = STRONG;
-        } else {
-            code = PALE;
-        }
-    } else {
-        code = user->uMark[index];
-    }
-    changeColor(&code);
-
-    if (user->uRank[index] == 10) {
-        printf("%c", suit[user->uMark[index]]);
-        printf("%d", user->uRank[index]);
+    changeColor(&user->record[index]);
+    if (user->value[index] == 10) {
+        printf("%c", suit[user->mark[index]]);
+        printf("%d", user->value[index]);
     } else {
         printf(" ");
-        printf("%c", suit[user->uMark[index]]);
-        printf("%c", rank[user->uRank[index]]);
+        printf("%c", suit[user->mark[index]]);
+        printf("%c", rank[user->value[index]]);
     }
     resetColor();
 }
 
 //  手札の表示
-void printCards( game *poker, users *user, userID *userId ) {
+void printCards( game *poker, users *self, users *opponent ) {
 
-    convertNumber(user);
-
-    if (0) {
-    } else if (*userId == YOU) {
-        printf("\nプレーヤーの手札:");
-    } else if (*userId == DEALDER) {
-        printf("\nディーラーの手札:");
-    }
+    printf("\n%sの手札:", self->name);
     for (int i = 0; i < HAND; i++) {
-        if (user->uRank[i] == 10) {
+        if (self->value[i] == 10) {
             printf(" ");
         }
-        if (poker->gFlag[i] && user->uRank[i] != 10) {
-            printf(" ");
+        if (poker->judge) {
+            if (self->value[i] != 10 && opponent->value[i] == 10) {
+                printf(" ");
+            }
         }
-        printCard(poker, user, i);
+        printCard(self, i);
     }
 }
 
@@ -186,16 +159,135 @@ void convertInput( char *input, command *output ) {
     }
 }
 
+//  カードを引く
+void drawCard( game *poker, users *user, int index ) {
+
+    int cardId;
+
+    cardId = generateNumber(poker);
+    user->pocket[index] = cardId;    
+}
+
+//  通し番号を昇順にソート
+void sortCardId( users *user ) {
+
+    int min;
+
+    for (int i = 0; i < HAND - 1; i++) {
+        min = user->pocket[i];
+        for (int j = i + 1; j < HAND; j++) {
+            if (min > user->pocket[j]) {
+                min = user->pocket[j];
+                user->pocket[j] = user->pocket[i];
+                user->pocket[i] = min;
+            }
+        }
+    }
+    convertNumber(user);
+}
+
+//  役の判定
+void judgeHand( users *user ) {
+
+    int sameSuit = 1;
+
+    sortCardId(user);
+    for (int i = 0; i < HAND - 1; i++) {
+        if (user->mark[i] != user->mark[i + 1]) {
+            sameSuit = 0;
+            break;
+        }
+    }
+
+    if (sameSuit) {
+        for (int i = 0; i < HAND; i++) {
+            user->record[i] = LIGHT;
+        }
+        user->hand = STRAIGHTFLUSH;
+        for (int i = HAND; i > 0; i--) {
+            if (user->value[0] == 10 && user->value[1] == 11 &&\
+                user->value[2] == 12 && user->value[3] == 13 &&\
+                user->value[4] == 1) {
+                user->hand = ROYALFLUSH;
+                break;
+            } else if (user->value[0] == 2 && user->value[1] == 3 &&\
+                       user->value[2] == 4 && user->value[3] == 5 &&\
+                       user->value[4] == 1) {
+                break;
+            } else if (user->value[i] - user->value[i - 1] != 1) {
+                user->hand = FLUSH;
+                break;
+            }
+        }
+    } else {
+    
+        int match = 0;
+
+        for (int i = 0; i < HAND; i++) {
+            user->record[i] = DARK;
+        }
+        for (int i = 0; i < HAND - 1; i++) {
+            for (int j = i + 1; j < HAND; j++) {
+                if (user->value[i] == user->value[j]) {
+                    user->record[i] = LIGHT;
+                    user->record[j] = LIGHT;
+                    match++;
+                }
+            }
+        }
+        switch (match) {
+            case 6:
+                user->hand = FOUR;
+                break;
+            case 4:
+                user->hand = FULLHOUSE;
+                break;
+            case 3:
+                user->hand = THREE;
+                break;
+            case 2:
+                user->hand = TWO;
+                break;
+            case 1:
+                user->hand = ONE;
+                break;
+            default:
+                user->hand = STRAIGHT;
+                for (int i = HAND - 1; i > 0; i--) {
+                    if (user->value[0] == 10 && user->value[1] == 11 &&\
+                        user->value[2] == 12 && user->value[3] == 13 &&\
+                        user->value[4] == 1) {                        
+                        break;
+                    } else if (user->value[0] == 2 && user->value[1] == 3 &&\
+                               user->value[2] == 4 && user->value[3] == 5 &&\
+                               user->value[4] == 1) {
+                        break;
+                    } else if (user->value[i] - user->value[i - 1] != 1) {
+                        user->hand = HIGH;
+                        break;
+                    }
+                }
+                if (user->hand == STRAIGHT) {
+                    for (int i = 0; i < HAND; i++) {
+                        user->record[i] = LIGHT;
+                    }
+                }
+                break;
+        }
+    }
+}
+
 //  プレーヤー
-void playerTurn( game *poker, users *player ) {
+void playerTurn( game *poker, users *player, users *dealer ) {
 
     char input[SIZE];
     command output;
-    int cardId;
 
+    printf("\n\n---%sのターン---\n", player->name);
+    printCards(poker, player, dealer);
     printf("\n\n");
     for (int i = 0; i < HAND; i++) {
-        printCard(poker, player, i);
+        printCard(player, i);
         printf("を交換しますか? (Y/N) ");
         while (1) {
             scanf("%2s%*[^\n]", input);
@@ -207,23 +299,20 @@ void playerTurn( game *poker, users *player ) {
             printf("有効な値ではありません。");
         }
         if (output == YES) {
-            cardId = generateNumber(poker);
-            player->uCard[i] = cardId;
+            drawCard(poker, player, i);
         }
     }
+    convertNumber(player);
+    printCards(poker, player, dealer);
+    judgeHand(player);
 }
 
 //  ディーラー
 void dealerTurn( game *poker, users *dealer ) {
 
-    int count[4] = {0};
-    int cardId;
-    int flag;
-
-    sortCardId(dealer);
+    printf("\n\n---%sのターン---\n", dealer->name);
     judgeHand(dealer);
-
-    switch (dealer->uHand) {
+    switch (dealer->hand) {
         case ROYALFLUSH:
         case STRAIGHTFLUSH:
         case FOUR:
@@ -236,189 +325,52 @@ void dealerTurn( game *poker, users *dealer ) {
         case TWO:
         case ONE:
             for (int i = 0; i < HAND; i++) {
-                if (!dealer->uFlag[i]) {
+                if (dealer->record[i] == DARK) {
                     printf("...\n");
-                    cardId = generateNumber(poker);
-                    dealer->uCard[i] = cardId;
+                    drawCard(poker, dealer, i);
                 }
             }
             break;
         case HIGH:
+        {
+            int count[4] = {0};
+            int maxSuit = -1;
+
             for (int i = 0; i < HAND; i++) {
-                count[dealer->uMark[i]]++;
+                count[dealer->mark[i]]++;
             }
             for (int i = 0; i < SUIT - 1; i++) {
                 if (count[i] >= HAND - 1) {
-                    flag = i;
+                    maxSuit = i;
                     break;
                 }
-                flag = -1;
             }
-            if (flag == -1) {
+            if (maxSuit == -1) {
                 for (int i = 0; i < HAND - 1; i++) {
                     printf("...\n");
-                    cardId = generateNumber(poker);
-                    dealer->uCard[i] = cardId;
+                    drawCard(poker, dealer, i);
                 }
             } else {
                 for (int i = 0; i < HAND; i++) {
-                    if (dealer->uMark[i] != flag) {
+                    if (dealer->mark[i] != maxSuit) {
                         printf("...\n");
-                        cardId = generateNumber(poker);
-                        dealer->uCard[i] = cardId;
+                        drawCard(poker, dealer, i);
                     }
                 }
             }
+        }
             break;
         default:
             break;
     }
     printf("\n交換が終了しました。");
-}
-
-//  通し番号を昇順にソート
-void sortCardId( users *user ) {
-
-    int min;
-
-    for (int i = 0; i < HAND - 1; i++) {
-        min = user->uCard[i];
-        for (int j = i + 1; j < HAND; j++) {
-            if (min > user->uCard[j]) {
-                min = user->uCard[j];
-                user->uCard[j] = user->uCard[i];
-                user->uCard[i] = min;
-            }
-        }
-    }
-    convertNumber(user);
-}
-
-//  役の判定
-void judgeHand( users *user ) {
-
-    int match = 0;
-    int samesuit;
-
-    for (int i = 0; i < HAND - 1; i++) {
-        if (user->uMark[i] == user->uMark[i + 1]) {
-            samesuit = 1;
-        } else {
-            samesuit = 0;
-            break;
-        }
-    }
-    if (samesuit) {
-        for (int i = 0; i < HAND; i++) {
-            user->uFlag[i] = 1;
-        }
-        for (int i = HAND; i > 0; i--) {
-            if (user->uRank[0] == 10 && user->uRank[1] == 11 &&\
-                user->uRank[2] == 12 && user->uRank[3] == 13 &&\
-                user->uRank[4] == 1)
-            {
-                user->uHand = ROYALFLUSH;
-                break;
-            } else if (user->uRank[0] == 2 && user->uRank[1] == 3 &&\
-                       user->uRank[2] == 4 && user->uRank[3] == 5 &&\
-                       user->uRank[4] == 1)
-            {
-                user->uHand = STRAIGHTFLUSH;
-                break;
-            } else if (user->uRank[i] - user->uRank[i - 1] == 1) {
-                user->uHand = STRAIGHTFLUSH;
-            } else {
-                user->uHand = FLUSH;
-                break;
-            }
-        }
-    } else {   
-        for (int i = 0; i < HAND; i++) {
-            user->uFlag[i] = 0;
-        }
-        for (int i = 0; i < HAND - 1; i++) {
-            for (int j = i + 1; j < HAND; j++) {
-                if (user->uRank[i] == user->uRank[j]) {
-                    user->uFlag[i] = 1;
-                    user->uFlag[j] = 1;
-                    match++;
-                }
-            }
-        }
-        switch (match) {
-            case 6:
-                user->uHand = FOUR;
-                break;
-            case 4:
-                user->uHand = FULLHOUSE;
-                break;
-            case 3:
-                user->uHand = THREE;
-                break;
-            case 2:
-                user->uHand = TWO;
-                break;
-            case 1:
-                user->uHand = ONE;
-                break;
-            default:
-                for (int i = 0; i < HAND; i++) {
-                    user->uFlag[i] = 1;
-                }
-                for (int i = HAND - 1; i > 0; i--) {
-                    if (user->uRank[0] == 10 && user->uRank[1] == 11 &&\
-                        user->uRank[2] == 12 && user->uRank[3] == 13 &&\
-                        user->uRank[4] == 1)
-                    {
-                        user->uHand = STRAIGHT;
-                        break;
-                    } else if (user->uRank[0] == 2 && user->uRank[1] == 3 &&\
-                               user->uRank[2] == 4 && user->uRank[3] == 5 &&\
-                               user->uRank[4] == 1)
-                    {
-                        user->uHand = STRAIGHT;
-                        break;
-                    } else if (user->uRank[i] - user->uRank[i - 1] == 1) {
-                        user->uHand = STRAIGHT;
-                    } else {
-                        user->uHand = HIGH;
-                        for (int i = 0; i < HAND; i++) {
-                            user->uFlag[i] = 0;
-                        }
-                        break;
-                    }
-                }
-                break;
-        }
-    }
-}
-
-//  ユーザーのターン
-void userTurn( game *poker, users *user, userID *userId ) {
-
-    if (0) {
-    } else if (*userId == YOU) {
-        printf("\n\n---プレーヤーのターン---\n");
-        printCards(poker, user, userId);
-        playerTurn(poker, user);
-        printCards(poker, user, userId);
-    } else if (*userId == DEALDER) {
-        printf("\n\n---ディーラーのターン---\n");
-        dealerTurn(poker, user);
-    }
-    sortCardId(user);
-    for (int i = 0; i < HAND; i++) {
-        if (user->uRank[i] == 10) {
-            poker->gFlag[i] = 1;
-        }
-    }
-    judgeHand(user);
+    judgeHand(dealer);
 }
 
 //  役の表示
 void printHand( users *user ) {
 
-    switch (user->uHand) {
+    switch (user->hand) {
         case ROYALFLUSH:
             printf("  ロイヤルストレートフラッシュ");
             break;
@@ -457,137 +409,136 @@ void printHand( users *user ) {
 //  勝敗の判定
 void judgeResult( game *poker, users *player, users *dealer ) {
  
-    if (player->uHand > dealer->uHand) {
+    if (player->hand > dealer->hand) {
         poker->result = LOSE;
-    } else if (player->uHand < dealer->uHand) {
+    } else if (player->hand < dealer->hand) {
         poker->result = WIN;
     } else {
-        switch (player->uHand) {
+        switch (player->hand) {
             case ROYALFLUSH:
                 poker->result = DRAW;
                 break;
             case STRAIGHTFLUSH:
             case STRAIGHT:
-                if (player->uRank[4] == dealer->uRank[4]) {
+                if (player->value[4] == dealer->value[4]) {
                     poker->result = DRAW;
-                } else if (player->uCard[4] > dealer->uCard[4]) {
+                } else if (player->pocket[4] > dealer->pocket[4]) {
                     poker->result = WIN;
-                } else if (player->uCard[4] < dealer->uCard[4]) {
+                } else if (player->pocket[4] < dealer->pocket[4]) {
                     poker->result = LOSE;
                 }
                 break;
             case FOUR:
             case FULLHOUSE:
             case THREE:
-                if (player->uCard[2] > dealer->uCard[2]) {
+                if (player->pocket[2] > dealer->pocket[2]) {
                     poker->result = WIN;
-                } else if (player->uCard[2] < dealer->uCard[2]) {
+                } else if (player->pocket[2] < dealer->pocket[2]) {
                     poker->result = LOSE;
                 }
                 break;
             case FLUSH:
             case HIGH:
                 for (int i = HAND - 1; i >= 0; i--) {
-                    if (player->uRank[i] == dealer->uRank[i]) {
+                    if (player->value[i] == dealer->value[i]) {
                         poker->result = DRAW;
-                    } else if (player->uCard[i] > dealer->uCard[i]) {
+                    } else if (player->pocket[i] > dealer->pocket[i]) {
                         poker->result = WIN;
                         break;
-                    } else if (player->uCard[i] < dealer->uCard[i]) {
+                    } else if (player->pocket[i] < dealer->pocket[i]) {
                         poker->result = LOSE;
                         break;
                     }
                 }
                 break;
             case TWO:
-                {
-                    int playerIndex;
-                    int dealerIndex;
+            {
+                int playerIndex;
+                int dealerIndex;
 
-                    if (player->uRank[3] == dealer->uRank[3]) {
-                        if (player->uRank[1] == dealer->uRank[1]) {
-                            for (int i = HAND - 1; i >= 0; i --) {
-                                if (!player->uFlag[i]) {
-                                    playerIndex = i;
-                                    break;
-                                }
+                if (player->value[3] == dealer->value[3]) {
+                    if (player->value[1] == dealer->value[1]) {
+                        for (int i = HAND - 1; i >= 0; i --) {
+                            if (player->record[i] == DARK) {
+                                playerIndex = i;
+                                break;
                             }
-                            for (int i = HAND - 1; i >= 0; i --) {
-                                if (!dealer->uFlag[i]) {
-                                    dealerIndex = i;
-                                    break;
-                                }
+                        }
+                        for (int i = HAND - 1; i >= 0; i --) {
+                            if (dealer->record[i] == DARK) {
+                                dealerIndex = i;
+                                break;
                             }
-                            if (player->uRank[playerIndex] == dealer->uRank[dealerIndex]) {
-                                poker->result = DRAW;
-                            } else if (player->uCard[playerIndex] > dealer->uCard[dealerIndex]) {
-                                poker->result = WIN;
-                            } else if (player->uCard[playerIndex] < dealer->uCard[dealerIndex]) {
-                                poker->result = LOSE;
-                            }
-                        } else if (player->uCard[1] > dealer->uCard[1]) {
+                        }
+                        if (player->value[playerIndex] == dealer->value[dealerIndex]) {
+                            poker->result = DRAW;
+                        } else if (player->pocket[playerIndex] > dealer->pocket[dealerIndex]) {
                             poker->result = WIN;
-                        } else if (player->uCard[1] < dealer->uCard[1]) {
+                        } else if (player->pocket[playerIndex] < dealer->pocket[dealerIndex]) {
                             poker->result = LOSE;
-                        } 
-                    } else if (player->uCard[3] > dealer->uCard[3]) {
+                        }
+                    } else if (player->pocket[1] > dealer->pocket[1]) {
                         poker->result = WIN;
-                    } else if (player->uCard[3] < dealer->uCard[3]) {
+                    } else if (player->pocket[1] < dealer->pocket[1]) {
                         poker->result = LOSE;
-                    }
+                    } 
+                } else if (player->pocket[3] > dealer->pocket[3]) {
+                    poker->result = WIN;
+                } else if (player->pocket[3] < dealer->pocket[3]) {
+                    poker->result = LOSE;
                 }
+            }
                 break;
             case ONE:
-                {
-                    int playerIndex;
-                    int playerPair;
-                    int dealerIndex;
-                    int dealerPair;
+            {
+                int playerIndex = -1;
+                int dealerIndex = -1;
+                int playerPair;
+                int dealerPair;
 
-                    for (int i = HAND - 1; i >= 0; i--) {
-                        if (player->uFlag[i]) {
-                            playerPair = i;
-                            break;
-                        }
-                    }
-                    for (int i = HAND - 1; i >= 0; i--) {
-                        if (dealer->uFlag[i]) {
-                            dealerPair = i;
-                            break;
-                        }
-                    }
-                    if (player->uRank[playerPair] == dealer->uRank[dealerPair]) {
-                        for (int i = 0; i < HAND - 2; i++) {
-                            for (int j = HAND - 1; j >= 0; j--) {
-                                if (!player->uFlag[j]) {
-                                    playerIndex = j;
-                                    player->uFlag[j] = 1;
-                                    break;
-                                }
-                            }
-                            for (int j = HAND - 1; j >= 0; j--) {
-                                if (!dealer->uFlag[j]) {
-                                    dealerIndex = j;
-                                    dealer->uFlag[j] = 1;
-                                    break;
-                                }
-                            }
-                            if (player->uRank[playerIndex] == dealer->uRank[dealerIndex]) {
-                                poker->result = DRAW;
-                            } else if (player->uCard[playerIndex] > dealer->uCard[dealerIndex]) {
-                                poker->result = WIN;
-                                break;
-                            } else if (player->uCard[playerIndex] < dealer->uCard[dealerIndex]) {
-                                poker->result = LOSE;
-                                break;
-                            }
-                        }
-                    } else if (player->uCard[playerPair] > dealer->uCard[dealerPair]) {
-                        poker->result = WIN;
-                    } else if (player->uCard[playerPair] < dealer->uCard[dealerPair]) {
-                        poker->result = LOSE;
+                for (int i = HAND - 1; i >= 0; i--) {
+                    if (player->record[i] == LIGHT) {
+                        playerPair = i;
+                        break;
                     }
                 }
+                for (int i = HAND - 1; i >= 0; i--) {
+                    if (dealer->record[i] == LIGHT) {
+                        dealerPair = i;
+                        break;
+                    }
+                }
+                if (player->value[playerPair] == dealer->value[dealerPair]) {
+                    poker->result = DRAW;
+                    for (int i = 0; i < HAND - 2; i++) {
+                        for (int j = HAND - 1; j >= 0; j--) {
+                            if (player->record[j] == DARK && playerIndex != j) {
+                                playerIndex = j;
+                                break;
+                            }
+                        }
+                        for (int j = HAND - 1; j >= 0; j--) {
+                            if (dealer->record[j] == DARK && dealerIndex != j) {
+                                dealerIndex = j;
+                                break;
+                            }
+                        }
+                        if (player->value[playerIndex] == dealer->value[dealerIndex]) {
+                        } else if (player->pocket[playerIndex] > dealer->pocket[dealerIndex]) {
+                            poker->result = WIN;
+                            break;
+                        } else if (player->pocket[playerIndex] < dealer->pocket[dealerIndex]) {
+                            poker->result = LOSE;
+                            break;
+                        }
+                    }
+
+                } else if (player->pocket[playerPair] > dealer->pocket[dealerPair]) {
+                    poker->result = WIN;
+                } else if (player->pocket[playerPair] < dealer->pocket[dealerPair]) {
+                    poker->result = LOSE;
+                }
+            }
                 break;
             default:
                 break;
@@ -597,18 +548,23 @@ void judgeResult( game *poker, users *player, users *dealer ) {
 }
 
 //  掛け金の計算
-void calculateBet( game *poker, int *bet ) {
+void calculateBet( game *poker, users *player, int *bet ) {
 
-    if (poker->result == WIN) {
-        printf("\n\nプレーヤーの勝ちです。");
-        printf("+%dG", *bet);
-        poker->gold += *bet;
-    } else if (poker->result == DRAW) {
-        printf("\n\n引き分けです。");
-        printf("±0G");
-    } else if (poker->result == LOSE) {
-        printf("\n\nプレーヤーの負けです。");
-        printf("-%dG", *bet);
-        poker->gold -= *bet;
+    switch (poker->result) {
+        case WIN:
+            printf("\n\n%sの勝ちです。+", player->name);
+            break;
+        case DRAW:
+            *bet = 0;
+            printf("\n\n引き分けです。±");
+            break;
+        case LOSE:
+            *bet *= -1;
+            printf("\n\n%sの負けです。", player->name);
+            break;
+        default:
+            break;
     }
+    printf("%dG", *bet);
+    poker->gold += *bet;
 }

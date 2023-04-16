@@ -26,7 +26,7 @@ void changeColor( color *code ) {
 
     char buf[64];
 
-	snprintf(buf, 64, "38;2;%d;%d;%d", RGB[*code].r, RGB[*code].g, RGB[*code].b);
+    snprintf(buf, 64, "38;2;%d;%d;%d", RGB[*code].r, RGB[*code].g, RGB[*code].b);
     escapeSequence(buf, 'm');
 }
 
